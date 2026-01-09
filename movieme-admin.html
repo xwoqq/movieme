@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Tinder - Admin Panel</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .add-movie-form {
+            background: #f5f5f5;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 120px;
+            gap: 15px;
+        }
+
+        input, button {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .movies-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .movie-card {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            position: relative;
+        }
+
+        .movie-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .swipe-status {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #f39c12;
+            color: white;
+        }
+
+        .status-liked {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-passed {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-remove {
+            background: #e74c3c;
+            margin-top: 10px;
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .share-link {
+            background: #27ae60;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .share-link input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Movie Tinder - Admin Panel</h1>
+        <p class="subtitle">Add movies and see her responses in real-time</p>
+
+        <div class="share-link">
+            <strong>Share this link with your girlfriend:</strong>
+            <input type="text" id="swiperLink" readonly value="Loading...">
+            <button onclick="copyLink()" style="margin-top: 10px; width: auto;">Copy Link</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalMovies">0</div>
+                <div class="stat-label">Total Movies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="likedMovies">0</div>
+                <div class="stat-label">She Liked ❤️</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="matchedMovies">0</div>
+                <div class="stat-label">Matches 🎯</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Add Movies & TV Shows</h2>
+            <div class="add-movie-form">
+                <div class="form-row" style="grid-template-columns: 1fr 120px 120px;">
+                    <input type="text" id="movieInput" placeholder="Enter title or TMDB URL (e.g., https://www.themoviedb.org/movie/12345)">
+                    <select id="contentType" style="padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;">
+                        <option value="movie">Movie</option>
+                        <option value="tv">TV Show</option>
+                    </select>
+                    <button onclick="addMovieFromTMDB()">Add</button>
+                </div>
+                <div id="loadingStatus" style="margin-top: 10px; color: #666; display: none;">
+                    <span id="loadingText">Loading data...</span>
+                </div>
+                <div style="margin-top: 10px; font-size: 12px; color: #999;">
+                    <p>💡 Get a free TMDB API key at <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a></p>
+                    <p>You can add both movies and TV shows!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Movie List</h2>
+            <div class="movies-list" id="moviesList">
+                <div class="empty-state">
+                    <p>No movies added yet. Add some movies to get started!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDXSH_qARP8u4Yb8SZnL99C5aV-WvX51Bc",
+            authDomain: "movie-tinder-c6c14.firebaseapp.com",
+            projectId: "movie-tinder-c6c14",
+            storageBucket: "movie-tinder-c6c14.firebasestorage.app",
+            messagingSenderId: "690934277145",
+            appId: "1:690934277145:web:52ca2cbcb6f3d144823688",
+            measurementId: "G-XQE1KK5NC6"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Collection name for movies
+        const MOVIES_COLLECTION = 'movies';
+        let movies = [];
+        let unsubscribe = null;
+
+        // Initialize
+        function init() {
+            setupRealtimeListener();
+            updateShareLink();
+        }
+
+        // Set up real-time listener for movies
+        function setupRealtimeListener() {
+            unsubscribe = db.collection(MOVIES_COLLECTION)
+                .orderBy('addedDate', 'desc')
+                .onSnapshot((snapshot) => {
+                    movies = [];
+                    snapshot.forEach((doc) => {
+                        const movie = {
+                            id: doc.id,
+                            ...doc.data()
+                        };
+                        movies.push(movie);
+                    });
+                    renderMovies();
+                    updateStats();
+                }, (error) => {
+                    console.error('Error listening to movies:', error);
+                    alert('Error connecting to Firebase. Please check your configuration.');
+                });
+        }
+
+        // TMDB API Key (free - get one at https://www.themoviedb.org/settings/api)
+        // Use the "API Key (v3 auth)" - NOT the "API Read Access Token"
+        const TMDB_API_KEY = 'e6f41d903b1532a2c61a4546e578e8bf'; 
+
+        // Extract content ID from TMDB URL (movie or TV)
+        function extractTMDBId(url) {
+            const movieMatch = url.match(/themoviedb\.org\/movie\/(\d+)/);
+            const tvMatch = url.match(/themoviedb\.org\/tv\/(\d+)/);
+            if (movieMatch) {
+                return { id: movieMatch[1], type: 'movie' };
+            }
+            if (tvMatch) {
+                return { id: tvMatch[1], type: 'tv' };
+            }
+            return null;
+        }
+
+        // Get content details from TMDB by ID (movie or TV)
+        async function getContentById(contentId, contentType) {
+            if (!TMDB_API_KEY || TMDB_API_KEY === 'YOUR_TMDB_API_KEY') {
+                throw new Error('TMDB API key not configured. Please get a free API key from https://www.themoviedb.org/settings/api and add it to the code.');
+            }
+            
+            const endpoint = contentType === 'tv' ? 'tv' : 'movie';
+            const url = `https://api.themoviedb.org/3/${endpoint}/${contentId}?api_key=${TMDB_API_KEY}&language=ru-RU&append_to_response=credits`;
+            
+            try {
+                // Try direct fetch first
+                let response = await fetch(url);
+                
+                // If CORS fails, try with CORS proxy
+                if (!response.ok && response.status === 0) {
+                    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                    const proxyResponse = await fetch(proxyUrl);
+                    const proxyData = await proxyResponse.json();
+                    const data = JSON.parse(proxyData.contents);
+                    
+                    if (data.status_code) {
+                        throw new Error(`TMDB API error: ${data.status_message || 'Unknown error'}`);
+                    }
+                    return { ...data, contentType: contentType };
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`TMDB API error: ${response.status} - ${errorData.status_message || response.statusText}`);
+                }
+                
+                const data = await response.json();
+                return { ...data, contentType: contentType };
+            } catch (error) {
+                // If direct fetch fails, try CORS proxy
+                if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                    try {
+                        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                        const proxyResponse = await fetch(proxyUrl);
+                        const proxyData = await proxyResponse.json();
+                        const data = JSON.parse(proxyData.contents);
+                        
+                        if (data.status_code) {
+                            throw new Error(`TMDB API error: ${data.status_message || 'Unknown error'}`);
+                        }
+                        return { ...data, contentType: contentType };
+                    } catch (proxyError) {
+                        throw new Error(`Failed to fetch from TMDB: ${proxyError.message}. Please check your API key and try again.`);
+                    }
+                }
+                throw error;
+            }
+        }
+
+        // Search for content on TMDB by title (movie or TV)
+        async function searchContentOnTMDB(title, contentType) {
+            if (!TMDB_API_KEY || TMDB_API_KEY === 'YOUR_TMDB_API_KEY') {
+                throw new Error('TMDB API key not configured. Please get a free API key from https://www.themoviedb.org/settings/api and add it to the code.');
+            }
+            
+            const endpoint = contentType === 'tv' ? 'tv' : 'movie';
+            const searchUrl = `https://api.themoviedb.org/3/search/${endpoint}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}&language=ru-RU`;
+            
+            try {
+                // Try direct fetch first
+                let response = await fetch(searchUrl);
+                
+                // If CORS fails, try with CORS proxy
+                if (!response.ok && response.status === 0) {
+                    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
+                    const proxyResponse = await fetch(proxyUrl);
+                    const proxyData = await proxyResponse.json();
+                    const data = JSON.parse(proxyData.contents);
+                    
+                    if (data.results && data.results.length > 0) {
+                        return await getContentById(data.results[0].id, contentType);
+                    }
+                    return null;
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(`TMDB API error: ${response.status} - ${errorData.status_message || response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    // Get full details for the first result
+                    return await getContentById(data.results[0].id, contentType);
+                }
+                return null;
+            } catch (error) {
+                // If direct fetch fails, try CORS proxy
+                if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+                    try {
+                        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
+                        const proxyResponse = await fetch(proxyUrl);
+                        const proxyData = await proxyResponse.json();
+                        const data = JSON.parse(proxyData.contents);
+                        
+                        if (data.status_code) {
+                            throw new Error(`TMDB API error: ${data.status_message || 'Unknown error'}`);
+                        }
+                        
+                        if (data.results && data.results.length > 0) {
+                            return await getContentById(data.results[0].id, contentType);
+                        }
+                        return null;
+                    } catch (proxyError) {
+                        throw new Error(`Failed to fetch from TMDB: ${proxyError.message}. Please check your API key and try again.`);
+                    }
+                }
+                throw error;
+            }
+        }
+
+        // Fetch content data from TMDB (movie or TV)
+        async function fetchContentDataFromTMDB(input, contentType) {
+            let tmdbContent = null;
+
+            // Check if input is a TMDB URL
+            const tmdbId = extractTMDBId(input);
+            if (tmdbId) {
+                // Get content by ID (use type from URL if available)
+                const type = tmdbId.type || contentType;
+                tmdbContent = await getContentById(tmdbId.id, type);
+            } else {
+                // Search by title
+                tmdbContent = await searchContentOnTMDB(input, contentType);
+            }
+
+            if (!tmdbContent) {
+                const typeName = contentType === 'tv' ? 'TV show' : 'movie';
+                throw new Error(`${typeName} not found on TMDB. Please check the title or try a different search term.`);
+            }
+
+            // Format content data (handle both movies and TV shows)
+            const posterUrl = tmdbContent.poster_path 
+                ? `https://image.tmdb.org/t/p/w500${tmdbContent.poster_path}` 
+                : '';
+            
+            const synopsis = tmdbContent.overview || '';
+            const year = tmdbContent.release_date 
+                ? tmdbContent.release_date.split('-')[0] 
+                : (tmdbContent.first_air_date ? tmdbContent.first_air_date.split('-')[0] : null);
+            const title = tmdbContent.title || tmdbContent.name || tmdbContent.original_title || tmdbContent.original_name;
+            const contentTypeFinal = tmdbContent.contentType || (tmdbContent.name ? 'tv' : 'movie');
+            const endpoint = contentTypeFinal === 'tv' ? 'tv' : 'movie';
+            const tmdbUrl = `https://www.themoviedb.org/${endpoint}/${tmdbContent.id}`;
+
+            return {
+                title: title,
+                year: year,
+                posterUrl: posterUrl,
+                synopsis: synopsis.substring(0, 500),
+                tmdbUrl: tmdbUrl,
+                tmdbId: tmdbContent.id.toString(),
+                contentType: contentTypeFinal
+            };
+        }
+
+        // Show manual entry dialog when TMDB fails
+        function showManualEntryDialog(contentType = 'movie') {
+            return new Promise((resolve) => {
+                const dialog = document.createElement('div');
+                dialog.id = 'manualEntryDialog';
+                dialog.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; justify-content: center; align-items: center;';
+                
+                const content = document.createElement('div');
+                content.style.cssText = 'background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%;';
+                const typeName = contentType === 'tv' ? 'TV show' : 'movie';
+                content.innerHTML = `
+                    <h2 style="margin-bottom: 20px;">Enter ${typeName} details manually</h2>
+                    <p style="margin-bottom: 20px; color: #666;">Please enter ${typeName} details:</p>
+                    <input type="text" id="manualTitle" placeholder="Movie title *" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;" required>
+                    <input type="text" id="manualYear" placeholder="Year (optional)" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;">
+                    <input type="text" id="manualPoster" placeholder="Poster URL (optional)" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box;">
+                    <textarea id="manualSynopsis" placeholder="Synopsis (optional)" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 2px solid #ddd; border-radius: 8px; min-height: 100px; box-sizing: border-box; resize: vertical;"></textarea>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="cancelBtn" style="flex: 1; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer;">Cancel</button>
+                        <button id="submitBtn" style="flex: 1; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer;">Add Movie</button>
+                    </div>
+                `;
+                
+                dialog.appendChild(content);
+                document.body.appendChild(dialog);
+                
+                document.getElementById('manualTitle').focus();
+                
+                document.getElementById('cancelBtn').onclick = () => {
+                    dialog.remove();
+                    resolve(null);
+                };
+                
+                document.getElementById('submitBtn').onclick = () => {
+                    const title = document.getElementById('manualTitle').value.trim();
+                    if (!title) {
+                        alert('Title is required');
+                        return;
+                    }
+                    dialog.remove();
+                    resolve({
+                        title: title,
+                        year: document.getElementById('manualYear').value.trim(),
+                        posterUrl: document.getElementById('manualPoster').value.trim(),
+                        synopsis: document.getElementById('manualSynopsis').value.trim()
+                    });
+                };
+                
+                // Close on Escape key
+                dialog.onkeydown = (e) => {
+                    if (e.key === 'Escape') {
+                        dialog.remove();
+                        resolve(null);
+                    }
+                };
+            });
+        }
+
+        // Add content from TMDB (movie or TV)
+        async function addMovieFromTMDB() {
+            const inputField = document.getElementById('movieInput');
+            const contentTypeSelect = document.getElementById('contentType');
+            const loadingStatus = document.getElementById('loadingStatus');
+            const loadingText = document.getElementById('loadingText');
+            const input = inputField.value.trim();
+            const contentType = contentTypeSelect.value; // 'movie' or 'tv'
+
+            if (input === '') {
+                alert('Please enter a title or TMDB URL');
+                return;
+            }
+
+            // Check if API key is configured
+            if (!TMDB_API_KEY || TMDB_API_KEY === 'YOUR_TMDB_API_KEY') {
+                // Show manual entry dialog
+                const manualEntry = await showManualEntryDialog(contentType);
+                if (!manualEntry) {
+                    return;
+                }
+
+                const newContent = {
+                    title: manualEntry.title,
+                    year: manualEntry.year || null,
+                    posterUrl: manualEntry.posterUrl || '',
+                    synopsis: manualEntry.synopsis.substring(0, 500) || '',
+                    contentType: contentType,
+                    swipeStatus: 'pending',
+                    addedBy: 'admin',
+                    addedDate: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                try {
+                    await db.collection(MOVIES_COLLECTION).add(newContent);
+                    inputField.value = '';
+                    inputField.focus();
+                    alert('Added successfully!');
+                } catch (error) {
+                    console.error('Error adding content:', error);
+                    alert('Error adding content. Please try again.');
+                }
+                return;
+            }
+
+            // Show loading
+            loadingStatus.style.display = 'block';
+            const typeName = contentType === 'tv' ? 'TV show' : 'movie';
+            loadingText.textContent = `Fetching ${typeName} data from TMDB...`;
+            inputField.disabled = true;
+            contentTypeSelect.disabled = true;
+
+            try {
+                // Fetch content data from TMDB
+                const contentData = await fetchContentDataFromTMDB(input, contentType);
+
+                // Create content object
+                const newContent = {
+                    title: contentData.title,
+                    year: contentData.year,
+                    posterUrl: contentData.posterUrl,
+                    synopsis: contentData.synopsis,
+                    tmdbUrl: contentData.tmdbUrl,
+                    tmdbId: contentData.tmdbId,
+                    contentType: contentData.contentType,
+                    swipeStatus: 'pending',
+                    addedBy: 'admin',
+                    addedDate: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Save to Firestore
+                await db.collection(MOVIES_COLLECTION).add(newContent);
+                
+                // Clear input
+                inputField.value = '';
+                inputField.focus();
+                loadingStatus.style.display = 'none';
+                alert('Added successfully!');
+            } catch (error) {
+                console.error('Error adding content:', error);
+                loadingText.textContent = 'Error: ' + error.message;
+                
+                // If TMDB fails, offer manual entry
+                if (confirm(`Failed to fetch from TMDB. Would you like to enter ${typeName} details manually?`)) {
+                    loadingStatus.style.display = 'none';
+                    const manualEntry = await showManualEntryDialog(contentType);
+                    if (manualEntry) {
+                        const newContent = {
+                            title: manualEntry.title,
+                            year: manualEntry.year || null,
+                            posterUrl: manualEntry.posterUrl || '',
+                            synopsis: manualEntry.synopsis.substring(0, 500) || '',
+                            contentType: contentType,
+                            swipeStatus: 'pending',
+                            addedBy: 'admin',
+                            addedDate: firebase.firestore.FieldValue.serverTimestamp()
+                        };
+                        await db.collection(MOVIES_COLLECTION).add(newContent);
+                        inputField.value = '';
+                        alert('Added successfully!');
+                    }
+                } else {
+                    setTimeout(() => {
+                        loadingStatus.style.display = 'none';
+                    }, 3000);
+                }
+            } finally {
+                inputField.disabled = false;
+                contentTypeSelect.disabled = false;
+            }
+        }
+
+        // Remove movie from Firestore
+        async function removeMovie(id) {
+            if (confirm('Remove this movie?')) {
+                try {
+                    await db.collection(MOVIES_COLLECTION).doc(id).delete();
+                } catch (error) {
+                    console.error('Error removing movie:', error);
+                    alert('Error removing movie. Please try again.');
+                }
+            }
+        }
+
+        // Render movies list
+        function renderMovies() {
+            const moviesList = document.getElementById('moviesList');
+            
+            if (movies.length === 0) {
+                moviesList.innerHTML = '<div class="empty-state"><p>No movies added yet. Add some movies to get started!</p></div>';
+                return;
+            }
+
+            moviesList.innerHTML = movies.map(movie => {
+                let statusBadge = '';
+                if (movie.swipeStatus === 'liked') {
+                    statusBadge = '<span class="status-badge status-liked">❤️ She Liked It!</span>';
+                } else if (movie.swipeStatus === 'passed') {
+                    statusBadge = '<span class="status-badge status-passed">❌ She Passed</span>';
+                } else {
+                    statusBadge = '<span class="status-badge status-pending">⏳ Pending</span>';
+                }
+
+                const posterHtml = movie.posterUrl ? 
+                    `<img src="${movie.posterUrl}" alt="${movie.title}" style="width: 100%; max-width: 200px; border-radius: 8px; margin-bottom: 10px;">` : 
+                    '';
+                
+                const typeBadge = movie.contentType === 'tv' ? 
+                    '<span class="status-badge" style="background: #764ba2; margin-bottom: 10px; display: inline-block;">📺 TV Show</span>' : 
+                    '<span class="status-badge" style="background: #667eea; margin-bottom: 10px; display: inline-block;">🎬 Movie</span>';
+
+                return `
+                    <div class="movie-card">
+                        ${posterHtml}
+                        ${typeBadge}
+                        <div class="movie-title">${movie.title}${movie.year ? ` (${movie.year})` : ''}</div>
+                        <div class="swipe-status">${statusBadge}</div>
+                        <button class="btn-remove" onclick="removeMovie('${movie.id}')">Remove</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update statistics
+        function updateStats() {
+            const total = movies.length;
+            const liked = movies.filter(m => m.swipeStatus === 'liked').length;
+            const matched = movies.filter(m => m.swipeStatus === 'liked').length; // You can add your own likes later
+
+            document.getElementById('totalMovies').textContent = total;
+            document.getElementById('likedMovies').textContent = liked;
+            document.getElementById('matchedMovies').textContent = matched;
+        }
+
+        // Update share link
+        function updateShareLink() {
+            const currentUrl = window.location.href;
+            const swiperUrl = currentUrl.replace('admin', 'swiper');
+            document.getElementById('swiperLink').value = swiperUrl;
+        }
+
+        // Copy link to clipboard
+        function copyLink() {
+            const linkInput = document.getElementById('swiperLink');
+            linkInput.select();
+            document.execCommand('copy');
+            alert('Link copied! Share it with your girlfriend.');
+        }
+
+        // Allow Enter key to add movie
+        document.getElementById('movieInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addMovieFromTMDB();
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
