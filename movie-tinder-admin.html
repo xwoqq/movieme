@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Tinder - Admin Panel</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .add-movie-form {
+            background: #f5f5f5;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 120px;
+            gap: 15px;
+        }
+
+        input, button {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .movies-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .movie-card {
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            position: relative;
+        }
+
+        .movie-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .swipe-status {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #f39c12;
+            color: white;
+        }
+
+        .status-liked {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status-passed {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-remove {
+            background: #e74c3c;
+            margin-top: 10px;
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .share-link {
+            background: #27ae60;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .share-link input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Movie Tinder - Admin Panel</h1>
+        <p class="subtitle">Add movies and see her responses in real-time</p>
+
+        <div class="share-link">
+            <strong>Share this link with your girlfriend:</strong>
+            <input type="text" id="swiperLink" readonly value="Loading...">
+            <button onclick="copyLink()" style="margin-top: 10px; width: auto;">Copy Link</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalMovies">0</div>
+                <div class="stat-label">Total Movies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="likedMovies">0</div>
+                <div class="stat-label">She Liked ❤️</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="matchedMovies">0</div>
+                <div class="stat-label">Matches 🎯</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Add Movies</h2>
+            <div class="add-movie-form">
+                <div class="form-row" style="grid-template-columns: 2fr 120px;">
+                    <input type="text" id="kinopoiskUrl" placeholder="Paste Kinopoisk.ru movie link (e.g., https://www.kinopoisk.ru/film/12345/)">
+                    <button onclick="addMovieFromKinopoisk()">Add Movie</button>
+                </div>
+                <div id="loadingStatus" style="margin-top: 10px; color: #666; display: none;">
+                    <span id="loadingText">Loading movie data...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Movie List</h2>
+            <div class="movies-list" id="moviesList">
+                <div class="empty-state">
+                    <p>No movies added yet. Add some movies to get started!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDXSH_qARP8u4Yb8SZnL99C5aV-WvX51Bc",
+            authDomain: "movie-tinder-c6c14.firebaseapp.com",
+            projectId: "movie-tinder-c6c14",
+            storageBucket: "movie-tinder-c6c14.firebasestorage.app",
+            messagingSenderId: "690934277145",
+            appId: "1:690934277145:web:52ca2cbcb6f3d144823688",
+            measurementId: "G-XQE1KK5NC6"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Collection name for movies
+        const MOVIES_COLLECTION = 'movies';
+        let movies = [];
+        let unsubscribe = null;
+
+        // Initialize
+        function init() {
+            setupRealtimeListener();
+            updateShareLink();
+        }
+
+        // Set up real-time listener for movies
+        function setupRealtimeListener() {
+            unsubscribe = db.collection(MOVIES_COLLECTION)
+                .orderBy('addedDate', 'desc')
+                .onSnapshot((snapshot) => {
+                    movies = [];
+                    snapshot.forEach((doc) => {
+                        const movie = {
+                            id: doc.id,
+                            ...doc.data()
+                        };
+                        movies.push(movie);
+                    });
+                    renderMovies();
+                    updateStats();
+                }, (error) => {
+                    console.error('Error listening to movies:', error);
+                    alert('Error connecting to Firebase. Please check your configuration.');
+                });
+        }
+
+        // Extract movie ID from Kinopoisk URL
+        function extractKinopoiskId(url) {
+            const match = url.match(/kinopoisk\.ru\/film\/(\d+)/);
+            return match ? match[1] : null;
+        }
+
+        // Fetch movie data from Kinopoisk
+        async function fetchMovieData(kinopoiskUrl) {
+            const movieId = extractKinopoiskId(kinopoiskUrl);
+            if (!movieId) {
+                throw new Error('Invalid Kinopoisk URL. Please use a format like: https://www.kinopoisk.ru/film/12345/');
+            }
+
+            // Use CORS proxy to fetch the page
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(kinopoiskUrl)}`;
+            
+            try {
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const html = data.contents;
+
+                // Parse HTML to extract movie data
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Extract title
+                const titleElement = doc.querySelector('h1[class*="styles_title"]') || 
+                                   doc.querySelector('.film-header__title') ||
+                                   doc.querySelector('h1');
+                const title = titleElement ? titleElement.textContent.trim() : 'Unknown Title';
+
+                // Extract poster image
+                const posterElement = doc.querySelector('img[class*="film-poster"]') ||
+                                    doc.querySelector('.film-poster img') ||
+                                    doc.querySelector('meta[property="og:image"]');
+                let posterUrl = '';
+                if (posterElement) {
+                    posterUrl = posterElement.src || posterElement.content || posterElement.getAttribute('src');
+                    if (posterUrl && !posterUrl.startsWith('http')) {
+                        posterUrl = 'https://www.kinopoisk.ru' + posterUrl;
+                    }
+                }
+
+                // Extract synopsis/description
+                const synopsisElement = doc.querySelector('[class*="film-synopsis"]') ||
+                                      doc.querySelector('.film-synopsis') ||
+                                      doc.querySelector('meta[property="og:description"]') ||
+                                      doc.querySelector('[itemprop="description"]');
+                const synopsis = synopsisElement ? synopsisElement.textContent.trim() || synopsisElement.content || '' : '';
+
+                // Extract year
+                const yearElement = doc.querySelector('[class*="film-year"]') ||
+                                  doc.querySelector('.film-year');
+                const year = yearElement ? yearElement.textContent.trim() : null;
+
+                return {
+                    title: title,
+                    year: year,
+                    posterUrl: posterUrl,
+                    synopsis: synopsis.substring(0, 500), // Limit synopsis length
+                    kinopoiskUrl: kinopoiskUrl,
+                    kinopoiskId: movieId
+                };
+            } catch (error) {
+                console.error('Error fetching movie data:', error);
+                throw new Error('Failed to fetch movie data. Please check the URL and try again.');
+            }
+        }
+
+        // Add movie from Kinopoisk URL
+        async function addMovieFromKinopoisk() {
+            const urlInput = document.getElementById('kinopoiskUrl');
+            const loadingStatus = document.getElementById('loadingStatus');
+            const loadingText = document.getElementById('loadingText');
+            const url = urlInput.value.trim();
+
+            if (url === '') {
+                alert('Please enter a Kinopoisk URL');
+                return;
+            }
+
+            if (!url.includes('kinopoisk.ru/film/')) {
+                alert('Please enter a valid Kinopoisk movie URL (e.g., https://www.kinopoisk.ru/film/12345/)');
+                return;
+            }
+
+            // Show loading
+            loadingStatus.style.display = 'block';
+            loadingText.textContent = 'Fetching movie data from Kinopoisk...';
+            urlInput.disabled = true;
+
+            try {
+                // Fetch movie data
+                const movieData = await fetchMovieData(url);
+
+                // Create movie object
+                const newMovie = {
+                    title: movieData.title,
+                    year: movieData.year,
+                    posterUrl: movieData.posterUrl,
+                    synopsis: movieData.synopsis,
+                    kinopoiskUrl: movieData.kinopoiskUrl,
+                    kinopoiskId: movieData.kinopoiskId,
+                    swipeStatus: 'pending',
+                    addedBy: 'admin',
+                    addedDate: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Save to Firestore
+                await db.collection(MOVIES_COLLECTION).add(newMovie);
+                
+                // Clear input
+                urlInput.value = '';
+                urlInput.focus();
+                loadingStatus.style.display = 'none';
+                alert('Movie added successfully!');
+            } catch (error) {
+                console.error('Error adding movie:', error);
+                loadingText.textContent = 'Error: ' + error.message;
+                setTimeout(() => {
+                    loadingStatus.style.display = 'none';
+                }, 3000);
+                alert('Error: ' + error.message);
+            } finally {
+                urlInput.disabled = false;
+            }
+        }
+
+        // Remove movie from Firestore
+        async function removeMovie(id) {
+            if (confirm('Remove this movie?')) {
+                try {
+                    await db.collection(MOVIES_COLLECTION).doc(id).delete();
+                } catch (error) {
+                    console.error('Error removing movie:', error);
+                    alert('Error removing movie. Please try again.');
+                }
+            }
+        }
+
+        // Render movies list
+        function renderMovies() {
+            const moviesList = document.getElementById('moviesList');
+            
+            if (movies.length === 0) {
+                moviesList.innerHTML = '<div class="empty-state"><p>No movies added yet. Add some movies to get started!</p></div>';
+                return;
+            }
+
+            moviesList.innerHTML = movies.map(movie => {
+                let statusBadge = '';
+                if (movie.swipeStatus === 'liked') {
+                    statusBadge = '<span class="status-badge status-liked">❤️ She Liked It!</span>';
+                } else if (movie.swipeStatus === 'passed') {
+                    statusBadge = '<span class="status-badge status-passed">❌ She Passed</span>';
+                } else {
+                    statusBadge = '<span class="status-badge status-pending">⏳ Pending</span>';
+                }
+
+                const posterHtml = movie.posterUrl ? 
+                    `<img src="${movie.posterUrl}" alt="${movie.title}" style="width: 100%; max-width: 200px; border-radius: 8px; margin-bottom: 10px;">` : 
+                    '';
+
+                return `
+                    <div class="movie-card">
+                        ${posterHtml}
+                        <div class="movie-title">${movie.title}${movie.year ? ` (${movie.year})` : ''}</div>
+                        <div class="swipe-status">${statusBadge}</div>
+                        <button class="btn-remove" onclick="removeMovie('${movie.id}')">Remove</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update statistics
+        function updateStats() {
+            const total = movies.length;
+            const liked = movies.filter(m => m.swipeStatus === 'liked').length;
+            const matched = movies.filter(m => m.swipeStatus === 'liked').length; // You can add your own likes later
+
+            document.getElementById('totalMovies').textContent = total;
+            document.getElementById('likedMovies').textContent = liked;
+            document.getElementById('matchedMovies').textContent = matched;
+        }
+
+        // Update share link
+        function updateShareLink() {
+            const currentUrl = window.location.href;
+            const swiperUrl = currentUrl.replace('admin', 'swiper');
+            document.getElementById('swiperLink').value = swiperUrl;
+        }
+
+        // Copy link to clipboard
+        function copyLink() {
+            const linkInput = document.getElementById('swiperLink');
+            linkInput.select();
+            document.execCommand('copy');
+            alert('Link copied! Share it with your girlfriend.');
+        }
+
+        // Allow Enter key to add movie
+        document.getElementById('kinopoiskUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addMovieFromKinopoisk();
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
